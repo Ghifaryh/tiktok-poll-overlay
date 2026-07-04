@@ -1,0 +1,11 @@
+---
+import Layout from '../../layouts/Base.astro'
+import { LoginForm } from '../../components/LoginForm'
+---
+
+<Layout title='Log in'>
+	<div class='mx-auto max-w-sm py-12'>
+		<h1 class='mb-6 text-lg font-semibold'>Log in</h1>
+		<LoginForm client:load />
+	</div>
+</Layout>
