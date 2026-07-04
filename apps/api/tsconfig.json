@@ -1,0 +1,16 @@
+{
+   "include": [
+      "src/**/*"
+   ],
+   "compilerOptions": {
+      "target": "ESNext",
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "types": [
+         "bun-types"
+      ],
+      "strict": true,
+      "skipLibCheck": true,
+      "esModuleInterop": true
+   }
+}

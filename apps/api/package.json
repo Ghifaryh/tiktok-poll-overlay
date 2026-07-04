@@ -1,0 +1,27 @@
+{
+  "name": "api",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "bun-types": "^1.3.14",
+    "drizzle-kit": "^0.31.10"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "tsc": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.4.2",
+    "@elysiajs/jwt": "^1.4.2",
+    "@tiktok-poll-overlay/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "elysia": "^1.4.29",
+    "nanoid": "^5.1.16",
+    "postgres": "^3.4.9",
+    "tiktok-live-connector": "^2.4.0"
+  }
+}

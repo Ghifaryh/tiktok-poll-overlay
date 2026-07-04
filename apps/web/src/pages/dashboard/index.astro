@@ -1,0 +1,26 @@
+---
+export const prerender = false
+import Layout from '../../layouts/Base.astro'
+import { LayoutList } from '../../components/LayoutList'
+import { CreateLayoutForm } from '../../components/CreateLayoutForm'
+---
+
+<Layout title='Dashboard'>
+	<div class='grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_1fr]'>
+		<div>
+			<h2 class='mb-3 text-sm font-medium text-text-secondary'>
+				Your layouts
+			</h2>
+			<LayoutList client:load />
+		</div>
+		<div>
+			<h2 class='mb-3 text-sm font-medium text-text-secondary'>
+				Create new poll
+			</h2>
+			<CreateLayoutForm
+				client:load
+				onCreated={() => window.location.reload()}
+			/>
+		</div>
+	</div>
+</Layout>

@@ -1,0 +1,24 @@
+---
+export const prerender = false
+import { PollOverlay } from '../../components/PollOverlay'
+
+const { token } = Astro.params
+if (!token) return new Response(null, { status: 400 })
+
+const res = await fetch(
+	`${import.meta.env.PUBLIC_API_URL}/api/public/layouts/${token}`,
+)
+if (!res.ok) return new Response(null, { status: 404 })
+const data = await res.json()
+---
+
+<html>
+	<body style='background: transparent; margin: 0;'>
+		<PollOverlay
+			client:load
+			token={token}
+			initial={{ options: data.options }}
+			wsUrl={import.meta.env.PUBLIC_WS_URL}
+		/>
+	</body>
+</html>
