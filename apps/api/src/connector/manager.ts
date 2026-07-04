@@ -1,7 +1,7 @@
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from "tiktok-live-connector";
 import { sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { layouts } from "../db/schema";
+import { layouts, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { matchOption } from "../poll/match";
 import { recordPollEvent } from "../poll/record";
@@ -71,11 +71,17 @@ class TikTokConnectionManager {
     }, delay);
   }
 
-  private async handleEvent(username: string, type: "comment" | "gift", data: any) {
+ private async handleEvent(username: string, type: "comment" | "gift", data: any) {
     if (type === "gift" && data.giftDetails?.giftType === 1 && !data.repeatEnd) return;
 
-    const [layout] = await db.select().from(layouts).where(eq(layouts.status, "active"));
-    // TODO: scope this to layouts whose owning user's tiktokUsername === username
+    const rows = await db
+      .select({ layout: layouts })
+      .from(layouts)
+      .innerJoin(users, eq(layouts.userId, users.id))
+      .where(and(eq(users.tiktokUsername, username), eq(layouts.status, "active")))
+      .limit(1);
+
+    const layout = rows[0]?.layout;
     if (!layout || !layout.activeSessionId) return;
 
     const option = matchOption(layout as any, type, data);
@@ -85,6 +91,9 @@ class TikTokConnectionManager {
     if (!changed) return;
 
     this.publish(layout.id, { type: "update", options: await getCurrentCounts(layout.id, layout.activeSessionId) });
+  }
+    isConnected(username: string): boolean {
+    return this.connections.has(username);
   }
 }
 
