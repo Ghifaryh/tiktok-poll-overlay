@@ -40,7 +40,7 @@ tiktok-poll-overlay/
 │   │       ├── connector/        # TikTok connection manager (one per streamer, refcounted)
 │   │       ├── db/               # Drizzle schema + client
 │   │       ├── poll/              # comment/gift matching + vote recording
-│   │       ├── routes/            # auth, layouts (CRUD), public (token-based read)
+│   │       ├── routes/            # auth, layouts (CRUD), public (token-based read), dev (test simulator)
 │   │       └── ws/                # WebSocket room handler (/ws/:token)
 │   │
 │   └── web/                     # Astro frontend
@@ -94,6 +94,7 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/tiktok_poll_overlay
 JWT_SECRET=change-me-to-something-random
 WEB_ORIGIN=http://localhost:4321
 PORT=3000
+NODE_ENV=development           # set to "production" to disable the /api/dev test routes
 EULER_SIGN_API_KEY=            # optional — see note on the connector below
 ```
 
@@ -124,6 +125,57 @@ bun run dev:web
 
 Sign up at `/signup` with your TikTok username, create a poll from the dashboard, activate it, then open `/layouts/:token` (the token is generated per layout) — that's the URL you'd add as an OBS Browser Source.
 
+## Testing without a live TikTok stream
+
+`tiktok-live-connector` connects to TikTok's real signaling servers — there's no official sandbox or staging mode, so end-to-end testing normally requires an actual live stream. To iterate quickly without that, this project includes a **dev-only simulator** that injects fake comment/gift events through the exact same code path (`matchOption` → `recordPollEvent` → WebSocket broadcast) a real TikTok event would take. Anything verified this way behaves identically to real traffic once you swap in a real connection.
+
+> ⚠️ **These routes are gated behind `NODE_ENV !== "production"`.** They accept unauthenticated requests that can inject arbitrary votes, so they must never be reachable in a production deploy. Double-check `NODE_ENV=production` is set before shipping.
+
+### Setup
+
+1. Log in and create a **comment-type** poll with options like `"1"`, `"2"`, `"3"`, then click **Go live** on it.
+2. Open the overlay page (`/layouts/:token`) in one tab and the dashboard in another, so you can watch updates land in real time.
+
+### Simulating comments
+
+```bash
+curl -X POST http://localhost:3000/api/dev/simulate/yourtiktokusername/comment \
+  -H "Content-Type: application/json" \
+  -d '{"text": "1", "userId": "viewer-1"}'
+```
+
+Try an alias to confirm normalization is working (should count toward the same option as `"1"`):
+```bash
+curl -X POST http://localhost:3000/api/dev/simulate/yourtiktokusername/comment \
+  -H "Content-Type: application/json" \
+  -d '{"text": "one", "userId": "viewer-2"}'
+```
+
+Confirm the one-vote-per-viewer rule — this second vote from `viewer-1` should be silently ignored, and option 1's count should **not** change:
+```bash
+curl -X POST http://localhost:3000/api/dev/simulate/yourtiktokusername/comment \
+  -H "Content-Type: application/json" \
+  -d '{"text": "2", "userId": "viewer-1"}'
+```
+
+### Simulating gifts
+
+```bash
+curl -X POST http://localhost:3000/api/dev/simulate/yourtiktokusername/gift \
+  -H "Content-Type: application/json" \
+  -d '{"giftId": "5655", "repeatable": true, "repeatCount": 3}'
+```
+
+Setting `"repeatable": true` mimics a streakable gift — this is worth testing specifically to confirm a streak is only counted once it's marked complete, rather than being tallied on every repeat tick.
+
+### Testing against a real TikTok stream
+
+The dev simulator only tests your own logic — it doesn't validate that the real `tiktok-live-connector` event payloads match the field names this code assumes (`data.comment`, `data.user?.nickname`, `data.giftDetails?.giftType`, etc.), since those are based on the library's documented shape rather than a payload actually observed. Before relying on this in front of a real audience:
+
+1. Go live with a test TikTok account — you don't need followers or viewers, just an active live room.
+2. From a second device/account, join your own live room and type test comments or send cheap gifts (many TikTok gifts, like Rose or GG, cost as little as 1 coin — roughly $0.01).
+3. Temporarily log the raw event payload inside `handleEvent` in `apps/api/src/connector/manager.ts` (e.g. `console.log(JSON.stringify(data))`) to confirm the real field names match what `poll/match.ts` and `poll/record.ts` expect, and adjust if they don't.
+
 ## How poll matching works
 
 - **Comments** are normalized (trimmed, lowercased, Unicode-normalized, emoji variation selectors stripped) before matching against each option's `matchValue` and configured `aliases` (e.g. option `"1"` can alias `["one", "1️⃣"]`). Matching is exact, not fuzzy — this keeps results predictable rather than guessing intent on ambiguous input.
@@ -131,9 +183,9 @@ Sign up at `/signup` with your TikTok username, create a poll from the dashboard
 
 ## Known limitations / next steps
 
-- The connector currently looks up "the active layout" without fully scoping to which TikTok connection an event came from — fine for a single concurrent streamer, needs tightening before supporting many simultaneous live users.
+- **Not yet tested against a real TikTok live stream** — everything has been verified via the dev simulator above, but the real connector's actual event field names haven't been confirmed against live payloads yet. Do this before relying on it during a real broadcast.
 - No production connection-signing provider wired in by default — the raw `tiktok-live-connector` may be rate-limited or blocked without one at scale.
-- No automated tests yet.
+- No automated tests yet — the dev simulator above is a manual substitute, not a test suite.
 
 ## License
 
