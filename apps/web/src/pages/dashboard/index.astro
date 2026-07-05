@@ -1,11 +1,12 @@
 ---
-export const prerender = false
 import Layout from '../../layouts/Base.astro'
+import { DashboardMetrics } from '../../components/DashboardMetrics'
 import { LayoutList } from '../../components/LayoutList'
 import { CreateLayoutForm } from '../../components/CreateLayoutForm'
 ---
 
 <Layout title='Dashboard'>
+	<DashboardMetrics client:load />
 	<div class='grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_1fr]'>
 		<div>
 			<h2 class='mb-3 text-sm font-medium text-text-secondary'>

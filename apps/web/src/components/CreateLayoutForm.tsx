@@ -1,13 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { GiftCaptureButton } from "./GiftCaptureButton";
 
 export function CreateLayoutForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [sourceType, setSourceType] = useState<"comment" | "gift">("comment");
   const [options, setOptions] = useState([{ label: "", matchValue: "" }]);
+  const [tiktokUsername, setTiktokUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getMe().then((me) => setTiktokUsername(me.tiktokUsername));
+  }, []);
 
   function updateOption(i: number, field: "label" | "matchValue", value: string) {
     setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, [field]: value } : o)));
+  }
+
+  function handleGiftCaptured(i: number, giftId: string, giftName: string) {
+    setOptions((prev) =>
+      prev.map((o, idx) => (idx === i ? { label: o.label || giftName, matchValue: giftId } : o))
+    );
   }
 
   function addOption() {
@@ -18,10 +30,10 @@ export function CreateLayoutForm({ onCreated }: { onCreated: () => void }) {
     setOptions((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit: React.SubmitEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     const valid = options.filter((o) => o.label && o.matchValue);
-    if (!name || valid.length < 2) return; // a poll needs at least 2 real options
+    if (!name || valid.length < 2) return;
 
     await api.createLayout({ name, sourceType, options: valid });
     setName("");
@@ -34,9 +46,6 @@ export function CreateLayoutForm({ onCreated }: { onCreated: () => void }) {
   }
   function handleSourceTypeChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setSourceType(e.target.value as "comment" | "gift");
-  }
-  function handleOptionChange(i: number, field: "label" | "matchValue") {
-    return (e: React.ChangeEvent<HTMLInputElement>) => updateOption(i, field, e.target.value);
   }
 
   return (
@@ -66,13 +75,31 @@ export function CreateLayoutForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => updateOption(i, "label", e.target.value)}
             className="flex-1 rounded-md border border-border px-2.5 py-2 text-sm"
           />
-          <input
-            type="text"
-            placeholder={sourceType === "comment" ? 'e.g. "1"' : "gift id"}
-            value={opt.matchValue}
-            onChange={(e) => updateOption(i, "matchValue", e.target.value)}
-            className="w-24 rounded-md border border-border px-2.5 py-2 text-sm"
-          />
+          {sourceType === "gift" ? (
+            <>
+              <input
+                type="text"
+                placeholder="gift id"
+                value={opt.matchValue}
+                readOnly
+                className="w-28 rounded-md border border-border bg-surface-1 px-2.5 py-2 text-sm text-text-secondary"
+              />
+              {tiktokUsername && (
+                <GiftCaptureButton
+                  tiktokUsername={tiktokUsername}
+                  onCaptured={(giftId, giftName) => handleGiftCaptured(i, giftId, giftName)}
+                />
+              )}
+            </>
+          ) : (
+            <input
+              type="text"
+              placeholder='e.g. "1"'
+              value={opt.matchValue}
+              onChange={(e) => updateOption(i, "matchValue", e.target.value)}
+              className="w-24 rounded-md border border-border px-2.5 py-2 text-sm"
+            />
+          )}
           {options.length > 1 && (
             <button type="button" onClick={() => removeOption(i)} aria-label="Remove option" className="px-2 text-text-muted">
               ✕

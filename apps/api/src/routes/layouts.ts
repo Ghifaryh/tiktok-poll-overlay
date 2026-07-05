@@ -4,6 +4,7 @@ import { layouts, pollSessions, pollOptions } from "../db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { requireAuth } from "../auth/middleware";
+import { getCurrentCounts, connectionManager } from "../connector/manager";
 
 export const layoutRoutes = new Elysia({ prefix: "/api/layouts" })
   .use(requireAuth)
@@ -103,6 +104,31 @@ export const layoutRoutes = new Elysia({ prefix: "/api/layouts" })
       .returning();
     if (!updated) throw new Error("layout not found");
     return updated;
+  },
+  { params: t.Object({ id: t.String() }) }
+)
+
+.get(
+  "/:id/stats",
+  async ({ userId, params, set }) => {
+    const layout = await db.query.layouts.findFirst({
+      where: and(eq(layouts.id, params.id), eq(layouts.userId, userId)),
+      with: { user: true },
+    });
+    if (!layout) {
+      set.status = 404;
+      throw new Error("layout not found");
+    }
+
+    const options = layout.activeSessionId
+      ? await getCurrentCounts(layout.id, layout.activeSessionId)
+      : [];
+
+    return {
+      totalVotes: options.reduce((sum, o) => sum + o.voteCount, 0),
+      connected: connectionManager.isConnected(layout.user.tiktokUsername ?? ""),
+      options,
+    };
   },
   { params: t.Object({ id: t.String() }) }
 )

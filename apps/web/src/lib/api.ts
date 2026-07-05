@@ -24,4 +24,6 @@ export const api = {
   createLayout: (data: unknown) => request<Layout>("/api/layouts", { method: "POST", body: JSON.stringify(data) }),
   activateLayout: (id: string) => request<Layout>(`/api/layouts/${id}/activate`, { method: "POST" }),
   endLayout: (id: string) => request<Layout>(`/api/layouts/${id}/end`, { method: "POST" }),
+  getLayoutStats: (id: string) =>request<{ totalVotes: number; connected: boolean }>(`/api/layouts/${id}/stats`),
+  getMe: () => request<{ id: string; email: string; tiktokUsername: string | null }>("/api/auth/me"),
 };

@@ -3,6 +3,7 @@ import { jwt } from "@elysiajs/jwt";
 import { db } from "../db/client";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { requireAuth } from "../auth/middleware";
 
 export const authRoutes = new Elysia({ prefix: "/api/auth" })
   .use(jwt({ name: "jwt", secret: process.env.JWT_SECRET! }))
@@ -51,4 +52,11 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
   .post("/logout", ({ cookie }) => {
     cookie.auth_token!.remove();
     return { ok: true };
+  })
+
+  .use(requireAuth)
+  .get("/me", async ({ userId }) => {
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user) throw new Error("user not found");
+    return { id: user.id, email: user.email, tiktokUsername: user.tiktokUsername };
   });
