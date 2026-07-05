@@ -5,12 +5,18 @@ import { layouts, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { matchOption } from "../poll/match";
 import { recordPollEvent } from "../poll/record";
+import { EventEmitter } from "events";
 
 type ManagedConnection = {
   conn: TikTokLiveConnection;
   refCount: number;
   teardownTimer: ReturnType<typeof setTimeout> | null;
 };
+
+class FakeConnection extends EventEmitter {
+  async connect() { /* no-op */ }
+  disconnect() { /* no-op */ }
+}
 
 class TikTokConnectionManager {
   private connections = new Map<string, ManagedConnection>();
@@ -69,6 +75,21 @@ class TikTokConnectionManager {
         this.scheduleReconnect(username, attempt + 1);
       }
     }, delay);
+  }
+
+    // dev-only: get (or create) a fake connection wired to the same handlers as a real one
+  acquireFake(username: string): FakeConnection {
+    let entry = this.connections.get(username);
+    if (entry) return entry.conn as unknown as FakeConnection;
+
+    const conn = new FakeConnection();
+    entry = { conn: conn as any, refCount: 1, teardownTimer: null };
+    this.connections.set(username, entry);
+
+    conn.on("chat", (data) => this.handleEvent(username, "comment", data));
+    conn.on("gift", (data) => this.handleEvent(username, "gift", data));
+
+    return conn;
   }
 
  private async handleEvent(username: string, type: "comment" | "gift", data: any) {
